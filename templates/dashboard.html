@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Pot App</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+
+        h1, h2 {
+            color: #333;
+        }
+
+        .card {
+            margin: 10px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            display: inline-block;
+            text-align: left;
+            width: 300px;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .card img {
+            max-width: 100%;
+            border-radius: 5px;
+        }
+
+        a {
+            background-color: darkgreen;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <h2>Witaj w dashbordzie {{user.name}}!</h2>
+        <p><b>Name: </b> {{user.name }}</p>
+        <p><b>Email: </b> {{user.email }}</p>
+        <a href="/logout" class="btn btn-dark">Logout</a>
+    </div>
+    <h1>Your Pots:</h1>
+    {% if boards %}
+        {% for board in boards %}
+            <div class="card" style="width: 18rem;">
+              <img class="card-img-top" src="static/img{{ (board.id % 5) + 1 }}.jpg" alt="Card image cap">
+              <div class="card-body">
+                <h5 class="card-title">{{board.name}}</h5>
+                <p class="card-text"> Roślina o ID: {{board.id}}</p>
+                <a href="/pot/{{ board.id }}"  class="btn btn-primary">Zobacz</a>
+                  <a href=""  class="btn btn-primary">Edytuj</a>
+              </div>
+            </div>
+        {% endfor %}
+    <a href=""  class="btn btn-primary">Usuń doniczkę</a>
+    {% else %}
+        <p>You do not have any pots yet.</p>
+    {% endif %}
+
+    <script>
+        // Optional: Add JavaScript for real-time updates using Socket.IO
+    </script>
+</body>
+</html>

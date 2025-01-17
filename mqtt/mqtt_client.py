@@ -3,7 +3,7 @@ import paho.mqtt.client as mqtt
 
 MQTT_PORT = 1883
 MQTT_BROKER = "broker.hivemq.com"
-MQTT_TOPIC = "user123"
+MQTT_TOPIC = "diana332m@gmail.com"
 
 class MqqtClient:
     def __init__(self, socketio, user_id):
@@ -19,6 +19,10 @@ class MqqtClient:
     def on_connect(self, client, userdata, flags, reason_code, properties=None):
         print(f"Connected with result code {reason_code}")
         client.subscribe(self.user_id)
+
+        if not bool(self.dynamic_topics):
+            for topic in self.dynamic_topics:
+                client.subscribe(topic)
 
     def on_message(self, client, userdata, msg):
         print(f"Received message on topic {msg.topic}: {msg.payload}")
@@ -38,11 +42,13 @@ class MqqtClient:
 
             elif msg.topic == self.user_id:
                 mac = data.get("device_mac")
+
                 if not mac:
                     print("MAC address not found in the message!")
                     return
 
                 print(f"Received MAC Address: {mac}")
+
 
                 for data_type in ['humidity', 'temperature', 'illuminance']:
                     if data_type not in self.dynamic_topics:
@@ -55,3 +61,4 @@ class MqqtClient:
             print("Invalid JSON format received!")
         except Exception as e:
             print(f"An error occurred: {e}")
+
