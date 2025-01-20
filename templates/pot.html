@@ -255,26 +255,26 @@
     <h1>Twoja doniczka: {{ board.name }}</h1>
 
     <h1>Wykres temperatury</h1>
-    <canvas id="temperatureChart" width="400" height="200"></canvas>
+    <canvas id="temperatureChart" width="600" height="400"></canvas>
 
     <h1>Wykres wilgotności</h1>
-    <canvas id="humidityChart" width="400" height="200"></canvas>
+    <canvas id="humidityChart" width="600" height="400"></canvas>
 
     <h1>Wykres naświetlenia</h1>
-    <canvas id="illuminanceChart" width="400" height="200"></canvas>
+    <canvas id="illuminanceChart" width="600" height="400"></canvas>
 
-    <h2>Logi danych</h2>
-    <table id="dataLog">
-        <thead>
-            <tr>
-                <th>Data</th>
-                <th>Temperatura (°C)</th>
-                <th>Wilgotność (%)</th>
-                <th>Naświetlenie (lux)</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+<!--    <h2>Logi danych</h2>-->
+<!--    <table id="dataLog">-->
+<!--        <thead>-->
+<!--            <tr>-->
+<!--                <th>Data</th>-->
+<!--                <th>Temperatura (°C)</th>-->
+<!--                <th>Wilgotność (%)</th>-->
+<!--                <th>Naświetlenie (lux)</th>-->
+<!--            </tr>-->
+<!--        </thead>-->
+<!--        <tbody></tbody>-->
+<!--    </table>-->
 
     <button>
         <a href="/configure/{{ board.id }}" class="btn btn-primary">Konfiguruj ustawienia</a>
@@ -298,17 +298,17 @@
         }
 
         // Update chart function
-        function updateChart(chart, label, dataPoint, maxPoints = 30) {
-            chart.data.labels.push(label);
-            chart.data.datasets[0].data.push(dataPoint);
+         function updateChart(chart, label, dataPoint, maxPoints = 30) {
+                chart.data.labels.push(label);
+                chart.data.datasets[0].data.push(dataPoint);
 
-            if (chart.data.labels.length > maxPoints) {
-                chart.data.labels.shift();
-                chart.data.datasets[0].data.shift();
+                if (chart.data.labels.length > maxPoints) {
+                    chart.data.labels.shift();
+                    chart.data.datasets[0].data.shift();
+                }
+
+                chart.update();
             }
-
-            chart.update();
-        }
 
         async function initializeCharts(boardId) {
             const data = await fetchHistoricalData(boardId);
@@ -362,35 +362,35 @@
         const humidityChart = createChart(document.getElementById('humidityChart').getContext('2d'), 'Wilgotność (%)');
         const illuminanceChart = createChart(document.getElementById('illuminanceChart').getContext('2d'), 'Naświetlenie (lux)');
 
-        // Real-time updates with Socket.IO
-        const socket = io({
-            query: { pot_id: '{{ board.id }}' }
-        });
-
-        socket.on('update_data', (data) => {
-            const time = new Date().toLocaleTimeString();
-
-            if (data.temperature !== undefined) {
-                updateChart(temperatureChart, time, data.temperature);
-            }
-
-            if (data.humidity !== undefined) {
-                updateChart(humidityChart, time, data.humidity);
-            }
-
-            if (data.illuminance !== undefined) {
-                updateChart(illuminanceChart, time, data.illuminance);
-            }
-
-            logData(time, data.temperature, data.humidity, data.illuminance);
-        });
-        // Fetch and initialize historical data
-
         var boardId = '{{ board.id}}';
         console.log('Board ID:')
         console.log(boardId)
         initializeCharts( boardId);
-        // {{board.id}}
+
+        const socket = io();
+        socket.on('new_measurement', (data) => {
+            const { board_id, type, value, timestamp } = data;
+            console.log(data);
+
+            if (board_id !== parseInt('{{ board.id }}')) {
+                return;
+            }
+
+            if (type === 'temperature') {
+                updateChart(temperatureChart, timestamp, value);
+            } else if (type === 'humidity') {
+                updateChart(humidityChart, timestamp, value);
+            } else if (type === 'illuminance') {
+                updateChart(illuminanceChart, timestamp, value);
+            }
+
+
+        });
+
+
+
+
+
     </script>
 </body>
 </html>

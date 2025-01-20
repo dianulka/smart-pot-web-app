@@ -29,7 +29,7 @@ class TemperatureMeasurement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     board_id = db.Column(db.Integer, db.ForeignKey('board.id'), index=True)
     temperature = db.Column(db.Integer, nullable=False)
-    date = db.Column(db.String, nullable=False)
+    date = db.Column(db.DateTime, nullable=False)
 
     board = db.relationship('Board', backref='TemperatureMeasurement')
 
@@ -37,7 +37,7 @@ class HumidityMeasurement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     board_id = db.Column(db.Integer, db.ForeignKey('board.id'),index=True)
     humidity = db.Column(db.Float, nullable=False)
-    date = db.Column(db.String, nullable=False)
+    date = db.Column(db.DateTime, nullable=False)
 
     board = db.relationship('Board', backref='HumidityMeasurement')
 
@@ -45,7 +45,7 @@ class IlluminanceMeasurement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     board_id = db.Column(db.Integer, db.ForeignKey('board.id'), index=True)
     illuminance = db.Column(db.Float, nullable=False)
-    date = db.Column(db.String, nullable=False)
+    date = db.Column(db.DateTime, nullable=False)
 
     board = db.relationship('Board', backref='IlluminanceMeasurement')
 

@@ -172,6 +172,7 @@ def save_thresholds(board_id):
         # Publish updated thresholds to the MQTT topic
         # topic = f"{board.owner.email}/{board.mac_address}/configuration"
         #topic = f"{board.owner.email}/{board.mac_address}/configuration"
+        #TODO owner email instaed diana
         topic = f"diana332m@gmail.com/{board.mac_address}/configuration"
 
         mqtt_client.mqtt_client.publish(topic, json.dumps(config_data))
@@ -188,21 +189,48 @@ def save_thresholds(board_id):
 def get_measurements(board_id):
     try:
         # Fetch the last 30 measurements for temperature, humidity, and illuminance
-        temperature_data = TemperatureMeasurement.query.filter_by(board_id=board_id).order_by(TemperatureMeasurement.date.desc()).limit(3).all()
-        humidity_data = HumidityMeasurement.query.filter_by(board_id=board_id).order_by(HumidityMeasurement.date.desc()).limit(3).all()
-        illuminance_data = IlluminanceMeasurement.query.filter_by(board_id=board_id).order_by(IlluminanceMeasurement.date.desc()).limit(3).all()
+        temperature_data = TemperatureMeasurement.query.filter_by(board_id=board_id).order_by(
+            TemperatureMeasurement.date.desc()).limit(30).all()
+        humidity_data = HumidityMeasurement.query.filter_by(board_id=board_id).order_by(
+            HumidityMeasurement.date.desc()).limit(30).all()
+        illuminance_data = IlluminanceMeasurement.query.filter_by(board_id=board_id).order_by(
+            IlluminanceMeasurement.date.desc()).limit(30).all()
 
         # Prepare the response
         data = {
-            "temperature": [{"value": t.temperature, "timestamp": t.date} for t in reversed(temperature_data)],
-            "humidity": [{"value": h.humidity, "timestamp": h.date} for h in reversed(humidity_data)],
-            "illuminance": [{"value": i.illuminance, "timestamp": i.date} for i in reversed(illuminance_data)],
+            "temperature": [{"value": t.temperature, "timestamp": t.date.isoformat()} for t in
+                            reversed(temperature_data)],
+            "humidity": [{"value": h.humidity, "timestamp": h.date.isoformat()} for h in reversed(humidity_data)],
+            "illuminance": [{"value": i.illuminance, "timestamp": i.date.isoformat()} for i in
+                            reversed(illuminance_data)],
         }
 
         return jsonify({'status': 'success', 'data': data})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+@app.route('/api/measurements/latest/<int:board_id>')
+def get_latest_data(board_id):
+    # Fetch the latest measurements for the board
+    latest_illuminance = IlluminanceMeasurement.query.filter_by(board_id=board_id).order_by(IlluminanceMeasurement.date.desc()).first()
+    latest_temperature = TemperatureMeasurement.query.filter_by(board_id=board_id).order_by(TemperatureMeasurement.date.desc()).first()
+    latest_humidity = HumidityMeasurement.query.filter_by(board_id=board_id).order_by(HumidityMeasurement.date.desc()).first()
+
+    data = {
+        "temperature": {
+            "value": latest_temperature.temperature if latest_temperature else None,
+            "timestamp": latest_temperature.date if latest_temperature else None,
+        },
+        "humidity": {
+            "value": latest_humidity.humidity if latest_humidity else None,
+            "timestamp": latest_humidity.date if latest_humidity else None,
+        },
+        "illuminance": {
+            "value": latest_illuminance.illuminance if latest_illuminance else None,
+            "timestamp": latest_illuminance.date if latest_illuminance else None,
+        },
+    }
+    return jsonify({"status": "success", "data": data})
 
 
 if __name__ == '__main__':

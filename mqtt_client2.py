@@ -1,6 +1,6 @@
 import json
 import paho.mqtt.client as mqtt
-
+from datetime import datetime
 
 from database import db,Board,User,IlluminanceMeasurement,HumidityMeasurement,TemperatureMeasurement
 
@@ -38,6 +38,15 @@ class MqttClient:
 
         print(self.topic_to_subscribe_from_db)
 
+
+    def emit_update(self, board_id, data_type, value, timestamp):
+        self.socketio.emit('new_measurement', {
+            "board_id": board_id,
+            "type": data_type,
+            "value": value,
+            "timestamp": timestamp.strftime('%Y-%m-%d %H:%M:%S')
+        })
+
     def add_client(self, email):
         self.new_clients.append(email)
         self.mqtt_client.subscribe(email)
@@ -69,6 +78,8 @@ class MqttClient:
 
                     value = data.get(data_type)
                     timestamp = data.get("timestamp")
+                    #timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                    timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
                     print(f"Value: {value}")
                     if data_type == 'illuminance':
                         illuminance_measurement = IlluminanceMeasurement(
@@ -79,13 +90,8 @@ class MqttClient:
                         db.session.add(illuminance_measurement)
                         db.session.commit()
                         print('Illuminance measurement saved')
+                        self.emit_update(board.id, 'illuminance', value, timestamp)
 
-                        # Emit real-time data to the frontend
-                        self.socketio.emit('update_data', {
-                            'board_id': board.id,
-                            'illuminance': value,
-                            'timestamp': timestamp
-                        })
 
                     elif data_type == 'temperature':
                         temperature_measurement = TemperatureMeasurement(
@@ -97,16 +103,8 @@ class MqttClient:
                         db.session.commit()
                         print('Temperature measurement saved')
 
-                        self.socketio.emit('update_data', {
-                            'board_id': board.id,
-                            'temperature': value,
-                            'timestamp': timestamp
-                        })
-                        self.socketio.emit('update_data', {
-                            'board_id': board.id,
-                            'humidity': value,
-                            'timestamp': timestamp
-                        })
+                        self.emit_update(board.id, 'temperature', value, timestamp)
+
                     elif data_type == 'humidity':
                         humidity_measurement = HumidityMeasurement(
                             board_id = board.id,
@@ -116,6 +114,7 @@ class MqttClient:
                         db.session.add(humidity_measurement)
                         db.session.commit()
                         print('Humidity measurement saved')
+                        self.emit_update(board.id, 'humidity', value, timestamp)
                     else:
                         print("Data not found in message")
 
