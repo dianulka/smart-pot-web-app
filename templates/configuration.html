@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Pot App</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        </style>
+</head>
+<body>
+
+<h1>Configure Thresholds for {{ board.name }}</h1>
+<p>Owner: {{ user.name }}</p>
+
+    <form method="POST" action="/save_thresholds/{{ board.id }}">
+    <label>Temperature (°C):</label><br>
+    Lower: <input type="number" step="0.1" name="lower_temperature" value="{{ thresholds.lower_threshold_temperature }}"><br>
+    Upper: <input type="number" step="0.1" name="upper_temperature" value="{{ thresholds.upper_threshold_temperature }}"><br>
+    Frequency (miliseconds): <input type="number" step="1" name="measurement_frequency_temperature" value="{{ thresholds.measurement_frequency_temperature }}"><br>
+
+    <label>Humidity (%):</label><br>
+    Lower: <input type="number" step="0.1" name="lower_humidity" value="{{ thresholds.lower_threshold_humidity }}"><br>
+    Upper: <input type="number" step="0.1" name="upper_humidity" value="{{ thresholds.upper_threshold_humidity }}"><br>
+    Frequency (miliseconds): <input type="number" step="1" name="measurement_frequency_humidity" value="{{ thresholds.measurement_frequency_humidity }}"><br>
+
+    <label>Illuminance (lux):</label><br>
+    Lower: <input type="number" step="1" name="lower_illuminance" value="{{ thresholds.lower_threshold_illuminance }}"><br>
+    Upper: <input type="number" step="1" name="upper_illuminance" value="{{ thresholds.upper_threshold_illuminance }}"><br>
+    Frequency (miliseconds): <input type="number" step="1" name="measurement_frequency_illuminance" value="{{ thresholds.measurement_frequency_illuminance }}"><br>
+
+    <button type="submit">Save</button>
+    </form>
+    <button>
+        <a href="/pot/{{ board.id }}">
+        Cancel
+        </a>
+    </button>
+
+
+</body>
+</html>
+
