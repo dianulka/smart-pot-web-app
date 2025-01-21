@@ -1,28 +1,50 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Pot App</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
-    <link rel="stylesheet" href="style.css">
     <style>
-        body {
+         body {
             font-family: Arial, sans-serif;
             text-align: center;
             margin: 0;
             padding: 0;
             background-color: #f4f4f9;
+            color: #333;
+        }
+
+        nav {
+            background-color: #4CAF50;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin: 0 10px;
+            font-weight: bold;
+            transition: color 0.3s;
+        }
+
+        nav a:hover {
+            color: #d4f5d4;
         }
 
         h1, h2 {
-            color: #333;
+            color: #4CAF50;
         }
 
         canvas {
             margin: 20px auto;
             display: block;
+            max-width: 100%;
+            height: auto;
         }
 
         table {
@@ -55,33 +77,91 @@
 </head>
 <body>
 
+    <nav>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/configure/{{ board.id }}">Configure Settings</a>
+    </nav>
 
-    <h1>Wykres temperatury</h1>
-    <canvas id="temperatureChart" width="400" height="200"></canvas>
+    <h1>Your pot: {{ board.name }}</h1>
+    <p> Owner: {{user.name}}</p>
 
-    <h1>Wykres wilgotności</h1>
-    <canvas id="humidityChart" width="400" height="200"></canvas>
+    <h1>Temperature chart</h1>
+    <canvas id="temperatureChart" width="600" height="400"></canvas>
 
-    <h1>Wykres naświetlenia</h1>
-    <canvas id="illuminanceChart" width="400" height="200"></canvas>
+    <h1>Humidity chart</h1>
+    <canvas id="humidityChart" width="600" height="400"></canvas>
 
-    <h2>Logi danych</h2>
-    <table id="dataLog">
-        <thead>
-            <tr>
-                <th>Data</th>
-                <th>Temperature (°C)</th>
-                <th>Humidity (%)</th>
-                <th>Illuminance (lux)</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    <h1>Illuminance chart</h1>
+    <canvas id="illuminanceChart" width="600" height="400"></canvas>
 
-    <button> Zmień częstotliowość pomiarów </button>
+    <h1>Soil moisture chart</h1>
+    <canvas id="soilMoistureChart" width="600" height="400"></canvas>
+<!--    <h2>Logi danych</h2>-->
+<!--    <table id="dataLog">-->
+<!--        <thead>-->
+<!--            <tr>-->
+<!--                <th>Data</th>-->
+<!--                <th>Temperatura (°C)</th>-->
+<!--                <th>Wilgotność (%)</th>-->
+<!--                <th>Naświetlenie (lux)</th>-->
+<!--            </tr>-->
+<!--        </thead>-->
+<!--        <tbody></tbody>-->
+<!--    </table>-->
 
-    <script>
-        // Initialize charts
+
+
+    <script type="text/javascript">
+
+
+        async function fetchHistoricalData(boardId) {
+            const response = await fetch(`/api/measurements/${boardId}`);
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                console.log(result.data);
+                return result.data;
+
+            } else {
+                console.error("Failed to fetch historical data:", result.message);
+                return null;
+            }
+        }
+
+         function updateChart(chart, label, dataPoint, maxPoints = 30) {
+                chart.data.labels.push(label);
+                chart.data.datasets[0].data.push(dataPoint);
+
+                if (chart.data.labels.length > maxPoints) {
+                    chart.data.labels.shift();
+                    chart.data.datasets[0].data.shift();
+                }
+
+                chart.update();
+            }
+
+        async function initializeCharts(boardId) {
+            const data = await fetchHistoricalData(boardId);
+
+            if (data) {
+                data.temperature.forEach((entry) => {
+                    updateChart(temperatureChart, entry.timestamp, entry.value);
+                });
+
+                data.humidity.forEach((entry) => {
+                    updateChart(humidityChart, entry.timestamp, entry.value);
+                });
+
+                data.illuminance.forEach((entry) => {
+                    updateChart(illuminanceChart, entry.timestamp, entry.value);
+                });
+
+                data.soil_moisture.forEach((entry) => {
+                    updateChart(soilMoistureChart, entry.timestamp, entry.value);
+                })
+            }
+        }
+
         function createChart(ctx, label) {
             return new Chart(ctx, {
                 type: 'line',
@@ -115,77 +195,34 @@
         const temperatureChart = createChart(document.getElementById('temperatureChart').getContext('2d'), 'Temperature (°C)');
         const humidityChart = createChart(document.getElementById('humidityChart').getContext('2d'), 'Humidity (%)');
         const illuminanceChart = createChart(document.getElementById('illuminanceChart').getContext('2d'), 'Illuminance (lux)');
-
-        // Update chart function
-        function updateChart(chart, label, dataPoint, maxPoints = 30) {
-            chart.data.labels.push(label);
-            chart.data.datasets[0].data.push(dataPoint);
-
-            if (chart.data.labels.length > maxPoints) {
-                chart.data.labels.shift();
-                chart.data.datasets[0].data.shift();
-            }
-
-            chart.update();
-        }
-
-        // Log data to table
-        function logData(time, temperature, humidity, illuminance) {
-            const tbody = document.getElementById('dataLog').querySelector('tbody');
-            const row = document.createElement('tr');
-
-            row.innerHTML = `
-                <td>${time}</td>
-                <td>${temperature !== undefined ? temperature : '-'}</td>
-                <td>${humidity !== undefined ? humidity : '-'}</td>
-                <td>${illuminance !== undefined ? illuminance : '-'}</td>
-            `;
-            tbody.appendChild(row);
-
-            if (tbody.rows.length > 10) {
-                tbody.deleteRow(0); // Remove oldest entry
-            }
-        }
+        const soilMoistureChart = createChart(document.getElementById('soilMoistureChart').getContext('2d'), 'Soil moisture');
+        var boardId = '{{ board.id}}';
+        console.log('Board ID:')
+        console.log(boardId)
+        initializeCharts( boardId);
 
         const socket = io();
+        socket.on('new_measurement', (data) => {
+            const { board_id, type, value, timestamp } = data;
+            console.log(data);
 
-        let temp, hum, il, counter = 0;
-        socket.on('update_data', (data) => {
-            const time = new Date().toLocaleTimeString();
-            console.log("Received data:", data);
-
-            if (data.temperature !== undefined) {
-                updateChart(temperatureChart, time, data.temperature);
-                temp = data.temperature;
-                counter++;
+            if (board_id !== parseInt('{{ board.id }}')) {
+                return;
             }
 
-            if (data.humidity !== undefined) {
-                updateChart(humidityChart, time, data.humidity);
-                hum = data.humidity;
-                counter++;
+            if (type === 'temperature') {
+                updateChart(temperatureChart, timestamp, value);
+            } else if (type === 'humidity') {
+                updateChart(humidityChart, timestamp, value);
+            } else if (type === 'illuminance') {
+                updateChart(illuminanceChart, timestamp, value);
+            } else if (type === 'soil_moisture') {
+                updateChart(soilMoistureChart, timestamp, value);
             }
 
-            if (data.illuminance !== undefined) {
-                updateChart(illuminanceChart, time, data.illuminance);
-                il = data.illuminance;
-                counter++;
-            }
 
-            if (counter % 3 === 0) {
-                logData(time, temp, hum, il);
-            }
         });
 
-
-
-        socket.on('disconnect', () => {
-            alert('Lost connection to the server.');
-        });
-
-        socket.on('connect', () => {
-            console.log('Reconnected to the server.');
-        });
 
 
     </script>
