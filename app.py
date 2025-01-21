@@ -2,7 +2,6 @@
 
 from flask import Flask, render_template, request, redirect, session, jsonify
 from flask_socketio import SocketIO
-#from mqtt.mqtt_client import MqqtClient
 from flask_sqlalchemy import SQLAlchemy
 from database import db, User, Board, MeasurementThresholds, HumidityMeasurement,TemperatureMeasurement,IlluminanceMeasurement
 import bcrypt
@@ -10,7 +9,7 @@ from mqtt_client2 import MqttClient
 from flask import request, redirect, url_for, flash
 import json
 app = Flask(__name__)
-socketio = SocketIO(app)
+socketio = SocketIO(app,cors_allowed_origins="*")
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 
 
@@ -24,7 +23,7 @@ db.init_app(app)
 #     db.create_all()
 #
 #     # Create a sample user
-#     user = User(name="John Doe", email="john@example.com", password="password123")
+#     user = User(name="user1", email="user1@wp.com", password="password123")
 #     db.session.add(user)
 #     db.session.commit()
 #
@@ -131,7 +130,6 @@ def configure(board_id):
 
 @app.route('/save_thresholds/<int:board_id>', methods=['POST'])
 def save_thresholds(board_id):
-    # Fetch the associated board
     board = Board.query.get_or_404(board_id)
 
     # Fetch the existing thresholds or create new ones
@@ -152,11 +150,9 @@ def save_thresholds(board_id):
         thresholds.measurement_frequency_humidity = float(request.form['measurement_frequency_humidity'])
         thresholds.measurement_frequency_illuminance = float(request.form['measurement_frequency_illuminance'])
 
-        # Save to the database
         db.session.add(thresholds)
         db.session.commit()
 
-        # Prepare MQTT payload
         config_data = {
             "lower_threshold_temperature": thresholds.lower_threshold_temperature,
             "upper_threshold_temperature": thresholds.upper_threshold_temperature,
@@ -169,11 +165,8 @@ def save_thresholds(board_id):
             "measurement_frequency_illuminance": thresholds.measurement_frequency_illuminance
         }
 
-        # Publish updated thresholds to the MQTT topic
-        # topic = f"{board.owner.email}/{board.mac_address}/configuration"
-        #topic = f"{board.owner.email}/{board.mac_address}/configuration"
-        #TODO owner email instaed diana
-        topic = f"diana332m@gmail.com/{board.mac_address}/configuration"
+
+        topic = f"{board.user.email}/{board.mac_address}/configuration"
 
         mqtt_client.mqtt_client.publish(topic, json.dumps(config_data))
         print(f"Published configuration to {topic}")
@@ -188,7 +181,6 @@ def save_thresholds(board_id):
 @app.route('/api/measurements/<int:board_id>', methods=['GET'])
 def get_measurements(board_id):
     try:
-        # Fetch the last 30 measurements for temperature, humidity, and illuminance
         temperature_data = TemperatureMeasurement.query.filter_by(board_id=board_id).order_by(
             TemperatureMeasurement.date.desc()).limit(30).all()
         humidity_data = HumidityMeasurement.query.filter_by(board_id=board_id).order_by(
@@ -196,12 +188,11 @@ def get_measurements(board_id):
         illuminance_data = IlluminanceMeasurement.query.filter_by(board_id=board_id).order_by(
             IlluminanceMeasurement.date.desc()).limit(30).all()
 
-        # Prepare the response
         data = {
-            "temperature": [{"value": t.temperature, "timestamp": t.date.isoformat()} for t in
+            "temperature": [{"value": t.temperature, "timestamp": t.date.isoformat(' ','auto')} for t in
                             reversed(temperature_data)],
-            "humidity": [{"value": h.humidity, "timestamp": h.date.isoformat()} for h in reversed(humidity_data)],
-            "illuminance": [{"value": i.illuminance, "timestamp": i.date.isoformat()} for i in
+            "humidity": [{"value": h.humidity, "timestamp": h.date.isoformat(' ','auto')} for h in reversed(humidity_data)],
+            "illuminance": [{"value": i.illuminance, "timestamp": i.date.isoformat(' ','auto')} for i in
                             reversed(illuminance_data)],
         }
 
@@ -209,28 +200,37 @@ def get_measurements(board_id):
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-@app.route('/api/measurements/latest/<int:board_id>')
-def get_latest_data(board_id):
-    # Fetch the latest measurements for the board
-    latest_illuminance = IlluminanceMeasurement.query.filter_by(board_id=board_id).order_by(IlluminanceMeasurement.date.desc()).first()
-    latest_temperature = TemperatureMeasurement.query.filter_by(board_id=board_id).order_by(TemperatureMeasurement.date.desc()).first()
-    latest_humidity = HumidityMeasurement.query.filter_by(board_id=board_id).order_by(HumidityMeasurement.date.desc()).first()
 
-    data = {
-        "temperature": {
-            "value": latest_temperature.temperature if latest_temperature else None,
-            "timestamp": latest_temperature.date if latest_temperature else None,
-        },
-        "humidity": {
-            "value": latest_humidity.humidity if latest_humidity else None,
-            "timestamp": latest_humidity.date if latest_humidity else None,
-        },
-        "illuminance": {
-            "value": latest_illuminance.illuminance if latest_illuminance else None,
-            "timestamp": latest_illuminance.date if latest_illuminance else None,
-        },
-    }
-    return jsonify({"status": "success", "data": data})
+@app.route('/delete/<int:board_id>', methods=['GET', 'POST'])
+def delete_board(board_id):
+    board = Board.query.get_or_404(board_id)
+    user = User.query.filter_by(id=board.owner_id).first()
+    if request.method == 'POST':
+        try:
+            TemperatureMeasurement.query.filter_by(board_id=board_id).delete()
+            HumidityMeasurement.query.filter_by(board_id=board_id).delete()
+            IlluminanceMeasurement.query.filter_by(board_id=board_id).delete()
+
+            MeasurementThresholds.query.filter_by(board_id=board_id).delete()
+
+            for topic in mqtt_client.topics:
+                mqtt_client.topic_to_subscribe_from_db.remove(f"{user.email}/{board.mac_address}/{topic}")
+                mqtt_client.mqtt_client.unsubscribe(f"{user.email}/{board.mac_address}/{topic}")
+            print(f"Po usunięciu doniczki o mac {board.mac_address }topice do subskrybowania: {mqtt_client.topic_to_subscribe_from_db} ")
+            print(f"Po usunięciu doniczki o mac {board.mac_address} kleinci maile subskrybowania; {mqtt_client.users_emails}")
+            # Delete the board itself
+            db.session.delete(board)
+            db.session.commit()
+
+
+            flash(f"The board '{board.name}' was successfully deleted.", 'success')
+            return redirect('/dashboard')
+        except Exception as e:
+            db.session.rollback()
+            flash(f"An error occurred while deleting the board: {str(e)}", 'error')
+            return redirect('/dashboard')
+
+    return render_template('delete.html', board=board)
 
 
 if __name__ == '__main__':

@@ -2,7 +2,7 @@ import json
 import paho.mqtt.client as mqtt
 from datetime import datetime
 
-from database import db,Board,User,IlluminanceMeasurement,HumidityMeasurement,TemperatureMeasurement
+from database import db,Board,User,IlluminanceMeasurement,HumidityMeasurement,TemperatureMeasurement,MeasurementThresholds
 
 MQTT_BROKER = "broker.hivemq.com"
 MQTT_PORT = 1883
@@ -22,8 +22,10 @@ class MqttClient:
         self.mqtt_client.loop_start()
 
         self.socketio = socketio
+        self.users_emails = []
 
         with self.app.app_context():
+            self.users_emails = [user.email for user in User.query.all()]
             users = User.query.all()
             for user in users:
                 boards = Board.query.filter_by(owner_id=user.id)
@@ -37,9 +39,49 @@ class MqttClient:
                             self.topic_to_subscribe_from_db.append(t1)
 
         print(self.topic_to_subscribe_from_db)
+        print(self.users_emails)
 
+    def check_thresholds(self, board_id):
+        with self.app.app_context():
+            board = Board.query.get_or_404(board_id)
+            thresholds = MeasurementThresholds.query.filter_by(board_id=board_id).first()
+
+            if not thresholds:
+                print("Thresholds not set for this board")
+                return
+
+            temperature_data = TemperatureMeasurement.query.filter_by(board_id=board_id).order_by(
+                TemperatureMeasurement.date.desc()).limit(10).all()
+            humidity_data = HumidityMeasurement.query.filter_by(board_id=board_id).order_by(
+                HumidityMeasurement.date.desc()).limit(10).all()
+            illuminance_data = IlluminanceMeasurement.query.filter_by(board_id=board_id).order_by(
+                IlluminanceMeasurement.date.desc()).limit(10).all()
+
+            temp_trigger = all(t.temperature < thresholds.lower_threshold_temperature or
+                               t.temperature > thresholds.upper_threshold_temperature for t in temperature_data)
+            humidity_trigger = all(h.humidity < thresholds.lower_threshold_humidity or
+                                   h.humidity > thresholds.upper_threshold_humidity for h in humidity_data)
+            illuminance_trigger = all(i.illuminance < thresholds.lower_threshold_illuminance or
+                                      i.illuminance > thresholds.upper_threshold_illuminance for i in illuminance_data)
+
+            if temp_trigger or humidity_trigger or illuminance_trigger:
+                message = {
+                    "action": "turn_on_light"
+                }
+                topic = f"{board.user.email}/{board.mac_address}/commands"
+
+                self.mqtt_client.publish(topic, json.dumps(message))
+                print(f"Sent light ON command to topic: {topic}")
+            else:
+                message = {
+                    "action": "turn_off_light"
+                }
+                topic = f"{board.user.email}/{board.mac_address}/commands"
+                self.mqtt_client.publish(topic, json.dumps(message))
+                print(f"Sent light OFF command to topic: {topic}")
 
     def emit_update(self, board_id, data_type, value, timestamp):
+        print('Emit_update')
         self.socketio.emit('new_measurement', {
             "board_id": board_id,
             "type": data_type,
@@ -59,6 +101,11 @@ class MqttClient:
         for topic in self.topic_to_subscribe_from_db:
             client.subscribe(topic)
             print(f"on_connect, subscribed to: {topic}")
+
+        for user in self.users_emails:
+            client.subscribe(user)
+            print(f"On-Connect: subsrcibed to {user}")
+
 
     def on_message(self, client, userdata, msg):
         print(f"Received message on topic {msg.topic}: {msg.payload}")
@@ -91,7 +138,7 @@ class MqttClient:
                         db.session.commit()
                         print('Illuminance measurement saved')
                         self.emit_update(board.id, 'illuminance', value, timestamp)
-
+                        self.check_thresholds(board.id)
 
                     elif data_type == 'temperature':
                         temperature_measurement = TemperatureMeasurement(
@@ -104,6 +151,7 @@ class MqttClient:
                         print('Temperature measurement saved')
 
                         self.emit_update(board.id, 'temperature', value, timestamp)
+                        self.check_thresholds(board.id)
 
                     elif data_type == 'humidity':
                         humidity_measurement = HumidityMeasurement(
@@ -115,13 +163,14 @@ class MqttClient:
                         db.session.commit()
                         print('Humidity measurement saved')
                         self.emit_update(board.id, 'humidity', value, timestamp)
+                        self.check_thresholds(board.id)
                     else:
                         print("Data not found in message")
 
             # nowy użytkownik zarejestrowany, płytka w bazie lub nie, ale nie ma relacji między nimi
             # topic: diana332m@gmail.com
             # payload: mac_topic : A1-B2-C3-D5-E6-F7
-            elif msg.topic in self.new_clients:
+            elif msg.topic in (self.new_clients or self.users_emails):
                 new_user_email = msg.topic
                 mac = data.get("device_mac")
                 if not mac:
@@ -154,9 +203,10 @@ class MqttClient:
                         # for topic in self.topic_to_subscribe_from_db:
                         for data_type in self.topics:
                             to_unsubscribe = f"{previous_owner.email}/{mac}/{data_type}"
-                            print("To unsubscribe : " + to_unsubscribe)
-                            client.unsubscribe(to_unsubscribe)
-                            self.topic_to_subscribe_from_db.remove(to_unsubscribe)
+                            if (to_unsubscribe in self.topic_to_subscribe_from_db):
+                                print("To unsubscribe : " + to_unsubscribe)
+                                client.unsubscribe(to_unsubscribe)
+                                self.topic_to_subscribe_from_db.remove(to_unsubscribe)
 
                 for topic in self.topics:
                     to_subscribe = f"{new_user_email}/{mac}/{topic}"
@@ -164,7 +214,8 @@ class MqttClient:
                     self.topic_to_subscribe_from_db.append(to_subscribe)
                     print(f"Subscribed to {to_subscribe}")
 
-                self.new_clients.remove(new_user_email)
+                if new_user_email in self.new_clients:
+                    self.new_clients.remove(new_user_email)
                 print(self.topic_to_subscribe_from_db)
 
             #TODO jakiś już zarejestrowany użytkownik odkupuje płytkę

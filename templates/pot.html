@@ -1,201 +1,3 @@
-<!--<!DOCTYPE html>-->
-<!--<html lang="en">-->
-<!--<head>-->
-<!--    <meta charset="UTF-8">-->
-<!--    <meta name="viewport" content="width=device-width, initial-scale=1.0">-->
-<!--    <title>Smart Pot App</title>-->
-<!--    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>-->
-<!--    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>-->
-<!--    <link rel="stylesheet" href="style.css">-->
-<!--    <style>-->
-<!--        body {-->
-<!--            font-family: Arial, sans-serif;-->
-<!--            text-align: center;-->
-<!--            margin: 0;-->
-<!--            padding: 0;-->
-<!--            background-color: #f4f4f9;-->
-<!--        }-->
-
-<!--        h1, h2 {-->
-<!--            color: #333;-->
-<!--        }-->
-
-<!--        canvas {-->
-<!--            margin: 20px auto;-->
-<!--            display: block;-->
-<!--        }-->
-
-<!--        table {-->
-<!--            margin: 20px auto;-->
-<!--            border-collapse: collapse;-->
-<!--            width: 90%;-->
-<!--            max-width: 800px;-->
-<!--            background: #fff;-->
-<!--            border: 1px solid #ddd;-->
-<!--        }-->
-
-<!--        th, td {-->
-<!--            padding: 10px;-->
-<!--            border: 1px solid #ddd;-->
-<!--            text-align: center;-->
-<!--        }-->
-
-<!--        th {-->
-<!--            background-color: #f9f9f9;-->
-<!--            font-weight: bold;-->
-<!--        }-->
-
-<!--        @media (max-width: 768px) {-->
-<!--            canvas {-->
-<!--                width: 90% !important;-->
-<!--                height: auto !important;-->
-<!--            }-->
-<!--        }-->
-<!--    </style>-->
-<!--</head>-->
-<!--<body>-->
-
-<!--    <h1>Twoja doniczka: {{board.name}}</h1>-->
-
-<!--    <h1>Wykres temperatury</h1>-->
-<!--    <canvas id="temperatureChart" width="400" height="200"></canvas>-->
-
-<!--    <h1>Wykres wilgotności</h1>-->
-<!--    <canvas id="humidityChart" width="400" height="200"></canvas>-->
-
-<!--    <h1>Wykres naświetlenia</h1>-->
-<!--    <canvas id="illuminanceChart" width="400" height="200"></canvas>-->
-
-<!--    <h2>Logi danych</h2>-->
-<!--    <table id="dataLog">-->
-<!--        <thead>-->
-<!--            <tr>-->
-<!--                <th>Data</th>-->
-<!--                <th>Temperature (°C)</th>-->
-<!--                <th>Humidity (%)</th>-->
-<!--                <th>Illuminance (lux)</th>-->
-<!--            </tr>-->
-<!--        </thead>-->
-<!--        <tbody></tbody>-->
-<!--    </table>-->
-
-<!--    <button>-->
-<!--    <a href="/configure/{{ board.id }}"  class="btn btn-primary">Konfiguruj ustawienia</a>-->
-<!--    </button>-->
-
-<!--    <script>-->
-<!--        // Initialize charts-->
-<!--        function createChart(ctx, label) {-->
-<!--            return new Chart(ctx, {-->
-<!--                type: 'line',-->
-<!--                data: {-->
-<!--                    labels: [],-->
-<!--                    datasets: [{-->
-<!--                        label: label,-->
-<!--                        data: [],-->
-<!--                        borderWidth: 2,-->
-<!--                        borderColor: 'rgba(75, 192, 192, 1)',-->
-<!--                        backgroundColor: 'rgba(75, 192, 192, 0.2)',-->
-<!--                        pointRadius: 4,-->
-<!--                        pointBackgroundColor: 'rgba(75, 192, 192, 1)'-->
-<!--                    }]-->
-<!--                },-->
-<!--                options: {-->
-<!--                    responsive: true,-->
-<!--                    plugins: {-->
-<!--                        legend: {-->
-<!--                            display: true,-->
-<!--                            position: 'top',-->
-<!--                        }-->
-<!--                    },-->
-<!--                    scales: {-->
-<!--                        y: { beginAtZero: true }-->
-<!--                    }-->
-<!--                }-->
-<!--            });-->
-<!--        }-->
-
-<!--        const temperatureChart = createChart(document.getElementById('temperatureChart').getContext('2d'), 'Temperature (°C)');-->
-<!--        const humidityChart = createChart(document.getElementById('humidityChart').getContext('2d'), 'Humidity (%)');-->
-<!--        const illuminanceChart = createChart(document.getElementById('illuminanceChart').getContext('2d'), 'Illuminance (lux)');-->
-
-<!--        // Update chart function-->
-<!--        function updateChart(chart, label, dataPoint, maxPoints = 30) {-->
-<!--            chart.data.labels.push(label);-->
-<!--            chart.data.datasets[0].data.push(dataPoint);-->
-
-<!--            if (chart.data.labels.length > maxPoints) {-->
-<!--                chart.data.labels.shift();-->
-<!--                chart.data.datasets[0].data.shift();-->
-<!--            }-->
-
-<!--            chart.update();-->
-<!--        }-->
-
-<!--        // Log data to table-->
-<!--        function logData(time, temperature, humidity, illuminance) {-->
-<!--            const tbody = document.getElementById('dataLog').querySelector('tbody');-->
-<!--            const row = document.createElement('tr');-->
-
-<!--            row.innerHTML = `-->
-<!--                <td>${time}</td>-->
-<!--                <td>${temperature !== undefined ? temperature : '-'}</td>-->
-<!--                <td>${humidity !== undefined ? humidity : '-'}</td>-->
-<!--                <td>${illuminance !== undefined ? illuminance : '-'}</td>-->
-<!--            `;-->
-<!--            tbody.appendChild(row);-->
-
-<!--            if (tbody.rows.length > 10) {-->
-<!--                tbody.deleteRow(0); // Remove oldest entry-->
-<!--            }-->
-<!--        }-->
-
-<!--        const socket = io({-->
-<!--             query: { pot_id: '{{ board.id }}' }-->
-<!--        });-->
-
-<!--        let temp, hum, il, counter = 0;-->
-<!--        socket.on('update_data', (data) => {-->
-<!--            const time = new Date().toLocaleTimeString();-->
-<!--            console.log("Received data:", data);-->
-
-<!--            if (data.temperature !== undefined) {-->
-<!--                updateChart(temperatureChart, time, data.temperature);-->
-<!--                temp = data.temperature;-->
-<!--                counter++;-->
-<!--            }-->
-
-<!--            if (data.humidity !== undefined) {-->
-<!--                updateChart(humidityChart, time, data.humidity);-->
-<!--                hum = data.humidity;-->
-<!--                counter++;-->
-<!--            }-->
-
-<!--            if (data.illuminance !== undefined) {-->
-<!--                updateChart(illuminanceChart, time, data.illuminance);-->
-<!--                il = data.illuminance;-->
-<!--                counter++;-->
-<!--            }-->
-
-<!--            if (counter % 3 === 0) {-->
-<!--                logData(time, temp, hum, il);-->
-<!--            }-->
-<!--        });-->
-
-
-
-<!--        socket.on('disconnect', () => {-->
-<!--            alert('Lost connection to the server.');-->
-<!--        });-->
-
-<!--        socket.on('connect', () => {-->
-<!--            console.log('Reconnected to the server.');-->
-<!--        });-->
-
-
-<!--    </script>-->
-<!--</body>-->
-<!--</html>-->
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -205,21 +7,44 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
     <style>
-        body {
+         body {
             font-family: Arial, sans-serif;
             text-align: center;
             margin: 0;
             padding: 0;
             background-color: #f4f4f9;
+            color: #333;
+        }
+
+        nav {
+            background-color: #4CAF50;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin: 0 10px;
+            font-weight: bold;
+            transition: color 0.3s;
+        }
+
+        nav a:hover {
+            color: #d4f5d4;
         }
 
         h1, h2 {
-            color: #333;
+            color: #4CAF50;
         }
 
         canvas {
             margin: 20px auto;
             display: block;
+            max-width: 100%;
+            height: auto;
         }
 
         table {
@@ -252,7 +77,13 @@
 </head>
 <body>
 
+    <nav>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/configure/{{ board.id }}">Configure Settings</a>
+    </nav>
+
     <h1>Twoja doniczka: {{ board.name }}</h1>
+    <p> Owner: {{user.name}}</p>
 
     <h1>Wykres temperatury</h1>
     <canvas id="temperatureChart" width="600" height="400"></canvas>
@@ -276,9 +107,7 @@
 <!--        <tbody></tbody>-->
 <!--    </table>-->
 
-    <button>
-        <a href="/configure/{{ board.id }}" class="btn btn-primary">Konfiguruj ustawienia</a>
-    </button>
+
 
     <script type="text/javascript">
 
@@ -315,15 +144,15 @@
 
             if (data) {
                 data.temperature.forEach((entry) => {
-                    updateChart(temperatureChart, new Date(entry.timestamp).toLocaleTimeString(), entry.value);
+                    updateChart(temperatureChart, entry.timestamp, entry.value);
                 });
 
                 data.humidity.forEach((entry) => {
-                    updateChart(humidityChart, new Date(entry.timestamp).toLocaleTimeString(), entry.value);
+                    updateChart(humidityChart, entry.timestamp, entry.value);
                 });
 
                 data.illuminance.forEach((entry) => {
-                    updateChart(illuminanceChart, new Date(entry.timestamp).toLocaleTimeString(), entry.value);
+                    updateChart(illuminanceChart, entry.timestamp, entry.value);
                 });
             }
         }
@@ -386,8 +215,6 @@
 
 
         });
-
-
 
 
 
