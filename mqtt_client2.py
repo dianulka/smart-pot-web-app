@@ -10,7 +10,7 @@ MQTT_PORT = 1883
 class MqttClient:
     def __init__(self, app,socketio):
         self.topic_to_subscribe_from_db = []
-        self.topics = ['humidity', 'temperature', 'illuminance']
+        self.topics = ['humidity', 'temperature', 'illuminance'] #soil_moisture
         self.app = app
 
         self.new_clients = []
@@ -57,18 +57,33 @@ class MqttClient:
             illuminance_data = IlluminanceMeasurement.query.filter_by(board_id=board_id).order_by(
                 IlluminanceMeasurement.date.desc()).limit(10).all()
 
-            temp_trigger = all(t.temperature < thresholds.lower_threshold_temperature or
-                               t.temperature > thresholds.upper_threshold_temperature for t in temperature_data)
-            humidity_trigger = all(h.humidity < thresholds.lower_threshold_humidity or
-                                   h.humidity > thresholds.upper_threshold_humidity for h in humidity_data)
-            illuminance_trigger = all(i.illuminance < thresholds.lower_threshold_illuminance or
-                                      i.illuminance > thresholds.upper_threshold_illuminance for i in illuminance_data)
+            if len(temperature_data) < 10 or len(humidity_data) < 10 or len(illuminance_data) < 10:
+                print("Not enough measurements to perform threshold check")
+                return
+
+            temp_trigger = all(
+                t.temperature < thresholds.lower_threshold_temperature for t in temperature_data) or all(
+                t.temperature > thresholds.upper_threshold_temperature
+                for t in temperature_data
+            )
+            humidity_trigger = all(
+                h.humidity < thresholds.lower_threshold_humidity for h in humidity_data) or all(
+                h.humidity > thresholds.upper_threshold_humidity
+                for h in humidity_data
+            )
+            illuminance_trigger = all(
+                i.illuminance < thresholds.lower_threshold_illuminance for i in illuminance_data
+            ) or all(
+                i.illuminance > thresholds.upper_threshold_illuminance
+                for i in illuminance_data
+            )
+
 
             if temp_trigger or humidity_trigger or illuminance_trigger:
                 message = {
                     "action": "turn_on_light"
                 }
-                topic = f"{board.user.email}/{board.mac_address}/commands"
+                topic = f"{board.user.email}/{board.mac_address}/command"
 
                 self.mqtt_client.publish(topic, json.dumps(message))
                 print(f"Sent light ON command to topic: {topic}")
@@ -76,7 +91,7 @@ class MqttClient:
                 message = {
                     "action": "turn_off_light"
                 }
-                topic = f"{board.user.email}/{board.mac_address}/commands"
+                topic = f"{board.user.email}/{board.mac_address}/command"
                 self.mqtt_client.publish(topic, json.dumps(message))
                 print(f"Sent light OFF command to topic: {topic}")
 

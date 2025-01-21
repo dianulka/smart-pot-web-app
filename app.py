@@ -154,12 +154,12 @@ def save_thresholds(board_id):
         db.session.commit()
 
         config_data = {
-            "lower_threshold_temperature": thresholds.lower_threshold_temperature,
-            "upper_threshold_temperature": thresholds.upper_threshold_temperature,
-            "lower_threshold_humidity": thresholds.lower_threshold_humidity,
-            "upper_threshold_humidity": thresholds.upper_threshold_humidity,
-            "lower_threshold_illuminance": thresholds.lower_threshold_illuminance,
-            "upper_threshold_illuminance": thresholds.upper_threshold_illuminance,
+            # "lower_threshold_temperature": thresholds.lower_threshold_temperature,
+            # "upper_threshold_temperature": thresholds.upper_threshold_temperature,
+            # "lower_threshold_humidity": thresholds.lower_threshold_humidity,
+            # "upper_threshold_humidity": thresholds.upper_threshold_humidity,
+            # "lower_threshold_illuminance": thresholds.lower_threshold_illuminance,
+            # "upper_threshold_illuminance": thresholds.upper_threshold_illuminance,
             "measurement_frequency_temperature": thresholds.measurement_frequency_temperature,
             "measurement_frequency_humidity": thresholds.measurement_frequency_humidity,
             "measurement_frequency_illuminance": thresholds.measurement_frequency_illuminance
