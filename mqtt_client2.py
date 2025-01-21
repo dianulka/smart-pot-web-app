@@ -2,7 +2,7 @@ import json
 import paho.mqtt.client as mqtt
 from datetime import datetime
 
-from database import db,Board,User,IlluminanceMeasurement,HumidityMeasurement,TemperatureMeasurement,MeasurementThresholds
+from database import db,Board,User,IlluminanceMeasurement,HumidityMeasurement,TemperatureMeasurement,MeasurementThresholds,SoilMoistureMeasurement
 
 MQTT_BROKER = "broker.hivemq.com"
 MQTT_PORT = 1883
@@ -10,7 +10,7 @@ MQTT_PORT = 1883
 class MqttClient:
     def __init__(self, app,socketio):
         self.topic_to_subscribe_from_db = []
-        self.topics = ['humidity', 'temperature', 'illuminance'] #soil_moisture
+        self.topics = ['humidity', 'temperature', 'illuminance','soil_moisture'] #soil_moisture
         self.app = app
 
         self.new_clients = []
@@ -179,6 +179,17 @@ class MqttClient:
                         print('Humidity measurement saved')
                         self.emit_update(board.id, 'humidity', value, timestamp)
                         self.check_thresholds(board.id)
+                    elif data_type=='soil_moisture':
+                        soilMoisture_measurement = SoilMoistureMeasurement(
+                            board_id = board.id,
+                            soil_moisture = value,
+                            date = timestamp
+                        )
+                        db.session.add(soilMoisture_measurement)
+                        db.session.commit()
+                        print('Soil moisture measurement saved')
+                        self.emit_update(board.id, 'soil_moisture', value, timestamp)
+                        self.check_thresholds(board.id)
                     else:
                         print("Data not found in message")
 
@@ -209,7 +220,7 @@ class MqttClient:
                         print(f"Added new board for user {user.email} with MAC {mac}")
 
                     else:
-                        # The device has already been registered to database. Need to change the owner
+                        # The device has already been registered to database, i need to change the owner
                         previous_owner = User.query.filter_by(id = existing_board.owner_id).first()
                         existing_board.owner_id = user.id
                         db.session.commit()
@@ -218,7 +229,7 @@ class MqttClient:
                         # for topic in self.topic_to_subscribe_from_db:
                         for data_type in self.topics:
                             to_unsubscribe = f"{previous_owner.email}/{mac}/{data_type}"
-                            if (to_unsubscribe in self.topic_to_subscribe_from_db):
+                            if to_unsubscribe in self.topic_to_subscribe_from_db:
                                 print("To unsubscribe : " + to_unsubscribe)
                                 client.unsubscribe(to_unsubscribe)
                                 self.topic_to_subscribe_from_db.remove(to_unsubscribe)

@@ -94,6 +94,8 @@
     <h1>Illuminance chart</h1>
     <canvas id="illuminanceChart" width="600" height="400"></canvas>
 
+    <h1>Soil moisture chart</h1>
+    <canvas id="soilMoistureChart" width="600" height="400"></canvas>
 <!--    <h2>Logi danych</h2>-->
 <!--    <table id="dataLog">-->
 <!--        <thead>-->
@@ -126,7 +128,6 @@
             }
         }
 
-        // Update chart function
          function updateChart(chart, label, dataPoint, maxPoints = 30) {
                 chart.data.labels.push(label);
                 chart.data.datasets[0].data.push(dataPoint);
@@ -154,9 +155,13 @@
                 data.illuminance.forEach((entry) => {
                     updateChart(illuminanceChart, entry.timestamp, entry.value);
                 });
+
+                data.soil_moisture.forEach((entry) => {
+                    updateChart(soilMoistureChart, entry.timestamp, entry.value);
+                })
             }
         }
-        // Initialize charts
+
         function createChart(ctx, label) {
             return new Chart(ctx, {
                 type: 'line',
@@ -187,10 +192,10 @@
             });
         }
 
-        const temperatureChart = createChart(document.getElementById('temperatureChart').getContext('2d'), 'Temperatura (°C)');
-        const humidityChart = createChart(document.getElementById('humidityChart').getContext('2d'), 'Wilgotność (%)');
-        const illuminanceChart = createChart(document.getElementById('illuminanceChart').getContext('2d'), 'Naświetlenie (lux)');
-
+        const temperatureChart = createChart(document.getElementById('temperatureChart').getContext('2d'), 'Temperature (°C)');
+        const humidityChart = createChart(document.getElementById('humidityChart').getContext('2d'), 'Humidity (%)');
+        const illuminanceChart = createChart(document.getElementById('illuminanceChart').getContext('2d'), 'Illuminance (lux)');
+        const soilMoistureChart = createChart(document.getElementById('soilMoistureChart').getContext('2d'), 'Soil moisture');
         var boardId = '{{ board.id}}';
         console.log('Board ID:')
         console.log(boardId)
@@ -211,6 +216,8 @@
                 updateChart(humidityChart, timestamp, value);
             } else if (type === 'illuminance') {
                 updateChart(illuminanceChart, timestamp, value);
+            } else if (type === 'soil_moisture') {
+                updateChart(soilMoistureChart, timestamp, value);
             }
 
 

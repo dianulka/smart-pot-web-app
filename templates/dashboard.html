@@ -92,7 +92,7 @@
               <img class="card-img-top" src="static/img{{ (board.id % 5) + 1 }}.jpg" alt="Card image cap">
               <div class="card-body">
                 <h5 class="card-title">{{board.name}}</h5>
-                <p class="card-text"> Roślina o ID: {{board.id}}</p>
+                <p class="card-text"> Roślina o MAC: {{board.mac_address}}</p>
                 <a href="/pot/{{ board.id }}" class="btn btn-primary">Zobacz</a>
                 <a href="/edit/{{ board.id }}" class="btn btn-secondary">Edytuj</a>
                 <a href="/delete/{{ board.id }}" class="btn btn-danger">Usuń</a>

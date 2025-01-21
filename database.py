@@ -49,7 +49,13 @@ class IlluminanceMeasurement(db.Model):
 
     board = db.relationship('Board', backref='IlluminanceMeasurement')
 
+class SoilMoistureMeasurement(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    board_id = db.Column(db.Integer, db.ForeignKey('board.id'), index=True)
+    soil_moisture = db.Column(db.Float, nullable=False)
+    date = db.Column(db.DateTime, nullable=False)
 
+    board = db.relationship('Board', backref='SoilMoistureMeasurement')
 # class Measurement(db.Model):
 #     id = db.Column(db.Integer, primary_key=True)
 #     board_id = db.Column(db.Integer, db.ForeignKey('board.id'))
@@ -69,7 +75,10 @@ class MeasurementThresholds(db.Model):
     upper_threshold_humidity = db.Column(db.Float, nullable=True)
     lower_threshold_illuminance = db.Column(db.Float, nullable=True)
     upper_threshold_illuminance = db.Column(db.Float, nullable=True)
+    lower_threshold_soil_moisture = db.Column(db.Float, nullable=True)
+    upper_threshold_soil_moisture = db.Column(db.Float, nullable=True)
 
     measurement_frequency_temperature = db.Column(db.Float, nullable=True)
     measurement_frequency_humidity = db.Column(db.Float, nullable=True)
     measurement_frequency_illuminance = db.Column(db.Float, nullable=True)
+    measurement_frequency_soil_moisture = db.Column(db.Float, nullable=True)

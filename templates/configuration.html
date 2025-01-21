@@ -111,6 +111,11 @@
     Upper: <input type="number" step="1" name="upper_illuminance" value="{{ thresholds.upper_threshold_illuminance }}"><br>
     Frequency (miliseconds): <input type="number" step="1" name="measurement_frequency_illuminance" value="{{ thresholds.measurement_frequency_illuminance }}"><br>
 
+    <label>Soil Moisture (%):</label><br>
+    Lower: <input type="number" step="0.1" name="lower_soil_moisture" value="{{ thresholds.lower_threshold_soil_moisture }}"><br>
+    Upper: <input type="number" step="0.1" name="upper_soil_moisture" value="{{ thresholds.upper_threshold_soil_moisture }}"><br>
+    Frequency (milliseconds): <input type="number" step="1" name="measurement_frequency_soil_moisture" value="{{ thresholds.measurement_frequency_soil_moisture }}"><br>
+
     <button type="submit">
         Save
     </button>

@@ -3,7 +3,8 @@
 from flask import Flask, render_template, request, redirect, session, jsonify
 from flask_socketio import SocketIO
 from flask_sqlalchemy import SQLAlchemy
-from database import db, User, Board, MeasurementThresholds, HumidityMeasurement,TemperatureMeasurement,IlluminanceMeasurement
+from database import db, User, Board, MeasurementThresholds, HumidityMeasurement, TemperatureMeasurement, \
+    IlluminanceMeasurement, SoilMoistureMeasurement
 import bcrypt
 from mqtt_client2 import MqttClient
 from flask import request, redirect, url_for, flash
@@ -17,23 +18,20 @@ app.secret_key = 'secret_key'
 db.init_app(app)
 
 
-# with app.app_context():
-#     # Drop and recreate tables
-#     db.drop_all()
-#     db.create_all()
-#
-#     # Create a sample user
-#     user = User(name="user1", email="user1@wp.com", password="password123")
-#     db.session.add(user)
-#     db.session.commit()
-#
-#     # Add some boards for the user
-#     board1 = Board(name="Living Room Pot", mac_address="00:1A:2B:3C:4D:5E", owner_id=user.id)
-#     board2 = Board(name="Bedroom Pot", mac_address="00:1A:AB:3C:4D:5F", owner_id=user.id)
-#     db.session.add_all([board1, board2])
-#     db.session.commit()
-#
-#     print("Database reset and seeded successfully!")
+with app.app_context():
+    db.drop_all()
+    db.create_all()
+
+    user = User(name="user1", email="user1@wp.com", password="password123")
+    db.session.add(user)
+    db.session.commit()
+
+    board1 = Board(name="Living room ", mac_address="00:1A:2B:3C:4D:5E", owner_id=user.id)
+    board2 = Board(name="Bedroom pot", mac_address="00:1A:AB:3C:4D:5F", owner_id=user.id)
+    db.session.add_all([board1, board2])
+    db.session.commit()
+
+    print("Database reset and seeded successfully!")
 
 mqtt_client = MqttClient(app, socketio)
 @app.route('/dashboard')
@@ -114,9 +112,13 @@ def configure(board_id):
             upper_threshold_humidity=70.0,
             lower_threshold_illuminance=25.0,
             upper_threshold_illuminance=150.0,
+            lower_threshold_soil_moisture = 0.0,
+            upper_threshold_soil_moisture = 70.0,
+
             measurement_frequency_temperature = 20000,
             measurement_frequency_humidity = 10000,
-            measurement_frequency_illuminance = 6000
+            measurement_frequency_illuminance = 6000,
+            measurement_frequency_soil_moisture = 15000,
         )
         db.session.add(thresholds)
         db.session.commit()
@@ -138,17 +140,19 @@ def save_thresholds(board_id):
         thresholds = MeasurementThresholds(board_id=board_id)
 
     try:
-        # Update thresholds from form data
         thresholds.lower_threshold_temperature = float(request.form['lower_temperature'])
         thresholds.upper_threshold_temperature = float(request.form['upper_temperature'])
         thresholds.lower_threshold_humidity = float(request.form['lower_humidity'])
         thresholds.upper_threshold_humidity = float(request.form['upper_humidity'])
         thresholds.lower_threshold_illuminance = float(request.form['lower_illuminance'])
         thresholds.upper_threshold_illuminance = float(request.form['upper_illuminance'])
+        thresholds.lower_threshold_soil_moisture = float(request.form['lower_soil_moisture'])
+        thresholds.upper_threshold_soil_moisture = float(request.form['upper_soil_moisture'])
 
         thresholds.measurement_frequency_temperature = float(request.form['measurement_frequency_temperature'])
         thresholds.measurement_frequency_humidity = float(request.form['measurement_frequency_humidity'])
         thresholds.measurement_frequency_illuminance = float(request.form['measurement_frequency_illuminance'])
+        thresholds.measurement_frequency_soil_moisture = float(request.form['measurement_frequency_soil_moisture'])
 
         db.session.add(thresholds)
         db.session.commit()
@@ -162,7 +166,8 @@ def save_thresholds(board_id):
             # "upper_threshold_illuminance": thresholds.upper_threshold_illuminance,
             "measurement_frequency_temperature": thresholds.measurement_frequency_temperature,
             "measurement_frequency_humidity": thresholds.measurement_frequency_humidity,
-            "measurement_frequency_illuminance": thresholds.measurement_frequency_illuminance
+            "measurement_frequency_illuminance": thresholds.measurement_frequency_illuminance,
+            "measurement_frequency_soil_moisture": thresholds.measurement_frequency_soil_moisture
         }
 
 
@@ -187,6 +192,8 @@ def get_measurements(board_id):
             HumidityMeasurement.date.desc()).limit(30).all()
         illuminance_data = IlluminanceMeasurement.query.filter_by(board_id=board_id).order_by(
             IlluminanceMeasurement.date.desc()).limit(30).all()
+        soilmoisture_data = SoilMoistureMeasurement.query.filter_by(board_id=board_id).order_by(
+            SoilMoistureMeasurement.date.desc()).limit(30).all()
 
         data = {
             "temperature": [{"value": t.temperature, "timestamp": t.date.isoformat(' ','auto')} for t in
@@ -194,6 +201,8 @@ def get_measurements(board_id):
             "humidity": [{"value": h.humidity, "timestamp": h.date.isoformat(' ','auto')} for h in reversed(humidity_data)],
             "illuminance": [{"value": i.illuminance, "timestamp": i.date.isoformat(' ','auto')} for i in
                             reversed(illuminance_data)],
+            "soil_moisture":[{"value": s.soil_moisture, "timestamp": s.date.isoformat(' ','auto')} for s in
+                            reversed(soilmoisture_data)],
         }
 
         return jsonify({'status': 'success', 'data': data})
@@ -218,7 +227,6 @@ def delete_board(board_id):
                 mqtt_client.mqtt_client.unsubscribe(f"{user.email}/{board.mac_address}/{topic}")
             print(f"Po usunięciu doniczki o mac {board.mac_address }topice do subskrybowania: {mqtt_client.topic_to_subscribe_from_db} ")
             print(f"Po usunięciu doniczki o mac {board.mac_address} kleinci maile subskrybowania; {mqtt_client.users_emails}")
-            # Delete the board itself
             db.session.delete(board)
             db.session.commit()
 
@@ -231,6 +239,22 @@ def delete_board(board_id):
             return redirect('/dashboard')
 
     return render_template('delete.html', board=board)
+
+@app.route('/edit/<int:board_id>', methods=['GET', 'POST'])
+def edit_board(board_id):
+    board = Board.query.get_or_404(board_id)
+
+    if request.method == 'POST':
+        new_name = request.form.get('name')
+        if new_name:
+            board.name = new_name
+            db.session.commit()
+            flash('Board name updated successfully!', 'success')
+            return redirect('/dashboard')
+        else:
+            flash('Board name cannot be empty.', 'error')
+
+    return render_template('edit_board.html', board=board)
 
 
 if __name__ == '__main__':
